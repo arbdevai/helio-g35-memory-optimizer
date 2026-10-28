@@ -1,0 +1,7 @@
+id=helio_g35_optimizer
+name=Helio G35 Dynamic Optimizer (blossom)
+version=v3.1-dynamic (Solusi A)
+versionCode=310
+author=Antigravity
+description=Dynamic Forensic Optimizer untuk Redmi 9C (blossom / MT6765G) RisingOS A14. Otomatis switch mode: Game Boost aktif saat main game (Roblox dll), Balanced & Wi-Fi Power-Save aktif saat idle/chatting untuk hemat baterai.
+updateJson=https://raw.githubusercontent.com/arbdevai/helio-g35-memory-optimizer/main/update.json

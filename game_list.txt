@@ -1,0 +1,5 @@
+# Helio G35 Optimizer - Custom Game List
+# Tambahkan nama package game tambahan di sini (satu package per baris).
+# Contoh:
+# com.tencent.tmgp.pubgmhd
+# com.vng.codm
