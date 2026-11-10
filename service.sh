@@ -1,9 +1,9 @@
 #!/system/bin/sh
 # ==============================================================================
-# Helio G35 Memory & Multitask Optimizer - Production Engine v3.1 (Dynamic)
+# Helio G35 Memory & Multitask Optimizer - Production Engine v3.2 (Dynamic)
 # Target Device: Xiaomi Redmi 9C (blossom / angelica) | RisingOS Android 14
 # Target SoC: MediaTek Helio G35 (MT6765G) | 8x Cortex-A53 | 4GB LPDDR4x
-# Architecture: Solusi A - Dynamic Foreground Game Listener & Power-Saving Engine
+# Architecture: Solusi A+ - Forensic Field-Hardened Dynamic Engine
 # ==============================================================================
 
 export PATH="/data/adb/magisk:/product/bin:/apex/com.android.runtime/bin:/apex/com.android.art/bin:/system_ext/bin:/system/bin:/system/xbin:/odm/bin:/vendor/bin:/vendor/xbin:$PATH"
@@ -72,7 +72,7 @@ done
 
 # Allow post-boot init scripts to settle
 sleep 5
-log_msg "Boot verified (Daemon PID=$DAEMON_PID). Initializing v3.1 Dynamic Engine..."
+log_msg "Boot verified (Daemon PID=$DAEMON_PID). Initializing v3.2 Dynamic Engine..."
 
 # --- 3. Resolve RisingOS RAMBoost Conflict & Tune Cgroups/VM ---
 apply_vm_and_cgroup_tuning() {
@@ -104,13 +104,31 @@ apply_storage_tuning() {
   done
 }
 
-# --- 5. CPU & Bus Overhead Elimination ---
+# --- 5. CPU, Scheduler & MediaTek PPM Optimization ---
 apply_cpu_and_bus_tuning() {
   [ -f /proc/sys/kernel/sched_schedstats ] && echo 0 > /proc/sys/kernel/sched_schedstats 2>/dev/null
   [ -f /sys/bus/platform/drivers/systracker/tracker_run ] && echo 0 > /sys/bus/platform/drivers/systracker/tracker_run 2>/dev/null
+
+  # Disable MediaTek artificial PPM throttling policies (FORCE_LIMIT & PWR_THRO)
+  # Retain PPM_POLICY_THERMAL (4 1) as hardware safety baseline
+  local ppm_path="/proc/ppm/policy_status"
+  if [ -f "$ppm_path" ]; then
+    echo "2 0" > "$ppm_path" 2>/dev/null # FORCE_LIMIT off
+    echo "3 0" > "$ppm_path" 2>/dev/null # PWR_THRO off
+    echo "4 1" > "$ppm_path" 2>/dev/null # THERMAL on
+  fi
+
+  # Governor schedutil rate limit latency optimization
+  for policy in /sys/devices/system/cpu/cpufreq/policy*; do
+    [ -d "$policy" ] || continue
+    if [ -d "$policy/schedutil" ]; then
+      echo 500 > "$policy/schedutil/up_rate_limit_us" 2>/dev/null
+      echo 20000 > "$policy/schedutil/down_rate_limit_us" 2>/dev/null
+    fi
+  done
 }
 
-# --- 6. Network Base Tuning (Wi-Fi Scan Throttling Re-enabled for Battery) ---
+# --- 6. Network Base Tuning (Zero Domino Effect - Native Wi-Fi HAL Intact) ---
 apply_network_base_tuning() {
   [ -f /proc/sys/net/ipv4/tcp_congestion_control ] && echo cubic > /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null
   [ -f /proc/sys/net/ipv4/tcp_keepalive_time ] && echo 300 > /proc/sys/net/ipv4/tcp_keepalive_time 2>/dev/null
@@ -122,7 +140,6 @@ apply_network_base_tuning() {
   [ -f /proc/sys/net/core/netdev_max_backlog ] && echo 2500 > /proc/sys/net/core/netdev_max_backlog 2>/dev/null
 
   iptables -t mangle -C POSTROUTING -j TTL --ttl-set 64 2>/dev/null || iptables -t mangle -A POSTROUTING -j TTL --ttl-set 64 2>/dev/null
-  # Re-enable Wi-Fi scan throttling to prevent background apps from spamming Wi-Fi scans
   settings put global wifi_scan_throttle_enabled 1 2>/dev/null
 }
 
@@ -168,10 +185,12 @@ apply_pixel_identity() {
   log_msg "Pixel 9 Pro XL identity asserted (Modem preserved on blossom)."
 }
 
-# --- 9. Dynamic Mode Control: Game Mode vs Balanced Mode ---
+# --- 9. Dynamic Mode Control: Game Boost vs Balanced Mode ---
+# Note: Wi-Fi driver power save and setCAM register toggles are intentionally excluded
+# from dynamic loops to eliminate MediaTek Wi-Fi firmware desync / lockups.
 apply_game_mode() {
   local game_pkg="$1"
-  log_msg "[DYNAMIC] Game detected ($game_pkg) -> ACTIVATING Game Boost (GPU high, Wi-Fi CAM on, Glove touch on)"
+  log_msg "[DYNAMIC] Game detected ($game_pkg) -> ACTIVATING Game Boost (GPU high, Glove touch on)"
 
   if [ -d /sys/module/ged/parameters ]; then
     echo 1 > /sys/module/ged/parameters/boost_gpu_enable 2>/dev/null
@@ -180,16 +199,12 @@ apply_game_mode() {
     echo 1 > /sys/module/ged/parameters/gx_game_mode 2>/dev/null
   fi
 
-  iw dev wlan0 set power_save off 2>/dev/null
-  [ -f /proc/net/wlan/setCAM ] && echo 1 > /proc/net/wlan/setCAM 2>/dev/null
-  [ -f /proc/net/wlan/autoPerfCfg ] && echo ForceEnable:1 > /proc/net/wlan/autoPerfCfg 2>/dev/null
-
   local fts_glove="/sys/devices/platform/11013000.spi/spi_master/spi3/spi3.0/fts_glove_mode"
   [ -f "$fts_glove" ] && echo 1 > "$fts_glove" 2>/dev/null
 }
 
 apply_balanced_mode() {
-  log_msg "[DYNAMIC] Normal/Idle state -> RESTORING Balanced Mode (GPU idle/smart, Wi-Fi PowerSave on, CAM off, Touch normal)"
+  log_msg "[DYNAMIC] Normal/Idle state -> RESTORING Balanced Mode (GPU idle/smart, Glove touch normal)"
 
   if [ -d /sys/module/ged/parameters ]; then
     echo 0 > /sys/module/ged/parameters/boost_gpu_enable 2>/dev/null
@@ -198,15 +213,21 @@ apply_balanced_mode() {
     echo 0 > /sys/module/ged/parameters/gx_game_mode 2>/dev/null
   fi
 
-  iw dev wlan0 set power_save on 2>/dev/null
-  [ -f /proc/net/wlan/setCAM ] && echo 0 > /proc/net/wlan/setCAM 2>/dev/null
-  [ -f /proc/net/wlan/autoPerfCfg ] && echo ForceEnable:0 > /proc/net/wlan/autoPerfCfg 2>/dev/null
-
   local fts_glove="/sys/devices/platform/11013000.spi/spi_master/spi3/spi3.0/fts_glove_mode"
   [ -f "$fts_glove" ] && echo 0 > "$fts_glove" 2>/dev/null
 }
 
-# --- 10. Foreground Game Detector (/dev/cpuset/top-app/cgroup.procs) ---
+# --- 10. DevBox & Chroot VIP Citizen Protection ---
+# Prevents Android LMKD from killing DevBox, compilation jobs, and chroot daemons
+protect_devbox_and_chroot() {
+  for dev_pid in $(pgrep -f "m.arbdev.devbox|agy|sshd|dropbear" 2>/dev/null); do
+    [ -d "/proc/$dev_pid" ] || continue
+    # Protect with negative oom_score_adj (VIP process)
+    echo -900 > "/proc/$dev_pid/oom_score_adj" 2>/dev/null
+  done
+}
+
+# --- 11. Foreground Game Detector (/dev/cpuset/top-app/cgroup.procs) ---
 GAME_REGEX="com\.roblox\.client|com\.mobile\.legends|com\.mobilelegends|com\.olzhas\.carparking|com\.maleo\.bussimulatorid|com\.hoyoverse|com\.miHoYo|com\.fingersoft\.hillclimb|com\.kiloo\.subwaysurf|com\.HeavyMental|com\.dts\.freefire|com\.tencent\.ig|com\.pubg|com\.mojang\.minecraftpe|com\.garena\.game|com\.activision\.callofduty|com\.riotgames|com\.kitkagames|com\.supercell|com\.levelinfinite|com\.axlebolt|com\.robtopx|com\.konami\.pes|com\.ea\.gp\.fifa|com\.neptune\.domino"
 
 detect_foreground_game() {
@@ -236,11 +257,14 @@ detect_foreground_game() {
   return 1
 }
 
-# --- 11. Forensic AppZygote Zombie Purger & Maintenance Cycle ---
+# --- 12. Forensic AppZygote Zombie Purger & Maintenance Cycle ---
 run_maintenance_cycle() {
   local purged_count=0
   local zram_wb_msg="skipped"
   local cache_msg="retained"
+
+  # Protect DevBox and chroot processes every cycle
+  protect_devbox_and_chroot
 
   local ps_snapshot
   ps_snapshot="$(ps -A -o pid=,ppid=,uid=,args= 2>/dev/null)"
@@ -287,13 +311,22 @@ run_maintenance_cycle() {
     fi
   done
 
+  # Refill ZRAM writeback quota dynamically to prevent 0-limit stall
+  if [ -f /sys/block/zram0/writeback_limit_enable ] && [ -f /sys/block/zram0/writeback_limit ]; then
+    echo 1 > /sys/block/zram0/writeback_limit_enable 2>/dev/null
+    echo 65536 > /sys/block/zram0/writeback_limit 2>/dev/null
+  fi
+
   # Offload incompressible huge pages (>16MB) from RAM to loop35 backing dev
   if [ -f /sys/block/zram0/mm_stat ] && [ -f /sys/block/zram0/writeback ]; then
     local huge_pages
     huge_pages="$(awk '{print $8}' /sys/block/zram0/mm_stat 2>/dev/null)"
     if [ -n "$huge_pages" ] && [ "$huge_pages" -gt 4096 ]; then
-      echo huge > /sys/block/zram0/writeback 2>/dev/null
-      zram_wb_msg="offloaded ${huge_pages} huge_pages"
+      if echo huge > /sys/block/zram0/writeback 2>/dev/null; then
+        zram_wb_msg="offloaded ${huge_pages} huge_pages"
+      else
+        zram_wb_msg="writeback attempted (${huge_pages} huge_pages)"
+      fi
     fi
   fi
 
@@ -312,15 +345,16 @@ run_maintenance_cycle() {
   log_msg "Maintenance ok: purged=${purged_count} zombies | zram_wb=${zram_wb_msg} | cache=${cache_msg}"
 }
 
-# --- 12. Startup Initialization ---
+# --- 13. Startup Initialization ---
 apply_vm_and_cgroup_tuning
 apply_storage_tuning
 apply_cpu_and_bus_tuning
 apply_network_base_tuning
 apply_ui_tuning
 apply_pixel_identity
+protect_devbox_and_chroot
 
-# ZRAM Writeback Safety Limit (eMMC Wear Protection)
+# Initialize ZRAM Writeback Quota Token (256MB / 65536 pages)
 if [ -f /sys/block/zram0/writeback_limit_enable ] && [ -f /sys/block/zram0/writeback_limit ]; then
   echo 1 > /sys/block/zram0/writeback_limit_enable 2>/dev/null
   echo 65536 > /sys/block/zram0/writeback_limit 2>/dev/null
@@ -330,9 +364,9 @@ fi
 CURRENT_MODE="balanced"
 apply_balanced_mode
 run_maintenance_cycle
-log_msg "v3.1 Dynamic Engine ready. Monitoring foreground games every 3s..."
+log_msg "v3.2 Dynamic Engine ready. Monitoring foreground games every 3s..."
 
-# --- 13. Dynamic Foreground Game Listener & Maintenance Watchdog ---
+# --- 14. Dynamic Foreground Game Listener & Maintenance Watchdog ---
 TICK_COUNT=0
 MAINTENANCE_TICKS=300 # 300 * 3s = 900s (~15 mins)
 
@@ -340,7 +374,7 @@ while true; do
   sleep 3
   TICK_COUNT=$((TICK_COUNT + 1))
 
-  # 1. Periodic Maintenance (Zombie purge & ZRAM compact every ~15m)
+  # 1. Periodic Maintenance (Zombie purge, Devbox protection & ZRAM refill every ~15m)
   if [ "$TICK_COUNT" -ge "$MAINTENANCE_TICKS" ]; then
     TICK_COUNT=0
     apply_vm_and_cgroup_tuning

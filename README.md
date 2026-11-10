@@ -9,13 +9,13 @@ Production-grade, forensic-level dynamic memory, power-saving, and gaming perfor
 
 ---
 
-## ⚡ Solusi A: Dynamic Foreground Game Listener
+## ⚡ Solusi A+: Field-Hardened Dynamic Engine (v3.2)
 
 Unlike traditional Magisk tweak modules that force high clocks and power-hungry states 24/7, this module introduces an autonomous, zero-overhead background listener directly tapping kernel sysfs & cgroups:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                      DAEMON LISTENER v3.1                       │
+│                      DAEMON LISTENER v3.2                       │
 │           (Cek setiap 3 detik via /dev/cpuset/top-app)          │
 └────────────────┬───────────────────────────────┬────────────────┘
                  │                               │
@@ -25,10 +25,10 @@ Unlike traditional Magisk tweak modules that force high clocks and power-hungry 
                  ▼                               ▼
        🚀 MODE GAME AKTIF              🍃 MODE BALANCED AKTIF
   • GPU Boost & GED Game Mode = 1  • GPU Clocks = 0 (Balanced/Smart)
-  • Wi-Fi CAM = 1 (Zero latency)   • Wi-Fi Power Save = ON (Deep sleep)
-  • Wi-Fi Power Save = OFF         • Wi-Fi CAM = 0 (Hemat 50-80 mA)
   • Touch Glove Mode = 1 (Sensitif) • Touch Glove Mode = 0 (Normal)
-                                   • Wi-Fi Scan Throttling = 1 (ON)
+  • MTK PPM FORCE_LIMIT = 0        • MTK PPM FORCE_LIMIT = 0
+  • MTK PPM PWR_THRO = 0           • MTK PPM PWR_THRO = 0
+  • Wi-Fi HAL: Managed by OS       • Wi-Fi HAL: Managed by OS
 ```
 
 ### Supported Games (Auto-Detected)
@@ -45,39 +45,32 @@ Unlike traditional Magisk tweak modules that force high clocks and power-hungry 
 
 ---
 
-## 🛠️ Fitur & Arsitektur Utama
+## 🛠️ Fitur & Arsitektur Utama (v3.2)
 
-1. **Dynamic Frequency & Power Governance**:
-   - Menurunkan konsumsi daya saat idle dan chatting.
-   - Deteksi layar mati (`lcd-backlight/brightness == 0`) yang seketika mengaktifkan mode hemat daya untuk deep sleep.
-2. **AppZygote Zombie Purger**:
-   - Membersihkan bangkai proses terisolasi (Chrome/Webview AppZygote) tanpa membunuh aplikasi yang sedang dipakai.
-3. **eMMC 5.1 Storage Optimization**:
-   - `read_ahead_kb = 512KB` untuk partisi internal flash eMMC 5.1.
-   - `rq_affinity = 2` dan `iostats = 0` memangkas overhead CPU scheduler.
-4. **ZRAM Writeback Guard**:
-   - Mencegah keausan chip eMMC dengan membatasi writeback page swap ke 65536 pages.
-5. **Pixel 9 Pro XL Spoofing Aman**:
-   - Identitas global aplikasi menggunakan Pixel 9 Pro XL tanpa merusak modem/sinyal cellular (radio baseband tetap terkunci di `blossom`).
-6. **Magisk OTA Update Support**:
-   - Dilengkapi `updateJson` resmi sehingga dapat diperbarui langsung dengan 1 ketukan di aplikasi Magisk.
-
----
-
-## 📲 Cara Pemasangan
-
-### Opsi 1: Lewat Magisk App
-1. Unduh file `HelioG35-Optimizer-v3.1-dynamic.zip` dari tab [Releases](https://github.com/arbdevai/helio-g35-memory-optimizer/releases).
-2. Buka **Magisk App** -> Tab **Modules** -> **Install from storage**.
-3. Pilih file zip yang diunduh.
-4. Selesai! Modul langsung aktif tanpa perlu restart HP.
-
-### Opsi 2: Lewat Termux / Root Shell
-```sh
-su -c "/data/adb/magisk/magisk --install-module /sdcard/HelioG35-Optimizer-v3.1-dynamic.zip"
-```
+1. **ZRAM Writeback Token Auto-Refill (Bugfix Krusial)**:
+   - Kernel Linux membatasi penulisan writeback via kuota `writeback_limit`. Begitu kuota habis, writeback macet diam-diam.
+   - v3.2 mengotomatisasi pengisian token (65536 pages / 256MB) setiap siklus maintenance, menjamin ZRAM tidak akan pernah stuck selamanya.
+2. **Wi-Fi Stability Lock (Zero Domino Effect)**:
+   - Menghapus saklar intervensi `setCAM` dan `iw power_save` agresif di runtime loop yang memicu desync firmware chip MediaTek (`halSetFWOwn` vs `DRIVER OWN`).
+   - Manajemen radio diserahkan ke native Android 14 `WifiLockManager` dan Wi-Fi HAL, menjamin koneksi internet tidak akan pernah mati/bengong sendiri.
+3. **DevBox & Chroot VIP Citizen Shield**:
+   - Melindungi proses DevBox (`m.arbdev.devbox`), `agy`, compiler, dan daemon chroot dari Android LMKD dengan menyetel `oom_score_adj = -900`.
+   - Android dipaksa mematikan aplikasi bloatware/cached terlebih dahulu bila RAM kritis, dan dilarang mengganggu DevBox.
+4. **MediaTek PPM Policy Optimization**:
+   - Mematikan `PPM_POLICY_FORCE_LIMIT` dan `PPM_POLICY_PWR_THRO` agar prosesor 8-core Helio G35 tidak dicekik MediaTek saat beban komputasi berat.
+   - Mempertahankan `PPM_POLICY_THERMAL` aktif untuk proteksi hardware terhadap panas berlebih.
+5. **AppZygote Forensic Zombie Purger**:
+   - Watchdog memindai forking liar dari aplikasi sosmed/browser yang mengendap di RAM setiap 15 menit dan membasminya dengan aman.
+6. **eMMC 5.1 Storage I/O Optimization**:
+   - Menyetel `read_ahead_kb = 512KB`, `nr_requests = 256`, dan `rq_affinity = 2`.
+7. **Official Magisk OTA**:
+   - Dukungan update 1-klik langsung melalui tab Modules aplikasi Magisk (`update.json`).
 
 ---
 
-## 🔄 Pembaruan OTA (Over-The-Air)
-Modul ini mendukung pembaruan otomatis Magisk. Setiap ada pembaruan versi di repositori ini, tab Modules di Magisk App akan memunculkan tombol **Update**.
+## 📦 Instalasi
+
+1. Download `HelioG35-Optimizer-v3.2-dynamic.zip` dari [Releases](../../releases).
+2. Buka aplikasi **Magisk** atau **KernelSU** / **APatch**.
+3. Masuk ke tab **Modules** -> **Install from storage**.
+4. Pilih file zip, lalu reboot perangkat (atau jalankan action trigger untuk pembersihan instan).

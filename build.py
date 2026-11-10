@@ -3,10 +3,10 @@ import zipfile
 
 module_dir = "/home/coder/projects/helio-g35-memory-optimizer"
 out_zips = [
+    os.path.join(module_dir, "HelioG35-Optimizer-v3.2-dynamic.zip"),
+    "/mnt/sdcard/HelioG35-Optimizer-v3.2-dynamic.zip",
     os.path.join(module_dir, "HelioG35-Optimizer-v3.1-dynamic.zip"),
     "/mnt/sdcard/HelioG35-Optimizer-v3.1-dynamic.zip",
-    os.path.join(module_dir, "HelioG35-Optimizer-v3.0-prod.zip"),
-    "/mnt/sdcard/HelioG35-Optimizer-v3.0-prod.zip",
 ]
 
 files_to_pack = [

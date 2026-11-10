@@ -1,6 +1,6 @@
 {
-  "version": "v3.1-dynamic",
-  "versionCode": 310,
-  "zipUrl": "https://github.com/arbdevai/helio-g35-memory-optimizer/releases/download/v3.1-dynamic/HelioG35-Optimizer-v3.1-dynamic.zip",
+  "version": "v3.2-dynamic",
+  "versionCode": 320,
+  "zipUrl": "https://github.com/arbdevai/helio-g35-memory-optimizer/releases/download/v3.2-dynamic/HelioG35-Optimizer-v3.2-dynamic.zip",
   "changelog": "https://raw.githubusercontent.com/arbdevai/helio-g35-memory-optimizer/main/changelog.md"
 }

@@ -1,6 +1,7 @@
 #!/system/bin/sh
 # ==============================================================================
-# Helio G35 Memory & Multitask Optimizer v3.1 - Manual Action Trigger (Dynamic)
+# Helio G35 Memory & Multitask Optimizer v3.2 - Manual Action Trigger (Dynamic)
+# Target Device: Xiaomi Redmi 9C (blossom / angelica) | RisingOS Android 14
 # ==============================================================================
 
 export PATH="/product/bin:/apex/com.android.runtime/bin:/apex/com.android.art/bin:/system_ext/bin:/system/bin:/system/xbin:/odm/bin:/vendor/bin:/vendor/xbin:$PATH"
@@ -12,11 +13,11 @@ case "$MODDIR" in
 esac
 
 echo "================================================="
-echo " Helio G35 Optimizer v3.1 (Dynamic Edition)"
+echo " Helio G35 Optimizer v3.2 (Dynamic Edition)"
 echo " Target: Redmi 9C (blossom) | RisingOS A14"
 echo "================================================="
 
-echo "[1/7] VM & Cgroup v1 Tuning..."
+echo "[1/8] VM & Cgroup Tuning..."
 [ -f /proc/sys/vm/swappiness ] && echo 160 > /proc/sys/vm/swappiness 2>/dev/null
 [ -f /proc/sys/vm/vfs_cache_pressure ] && echo 100 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
 [ -f /proc/sys/vm/watermark_scale_factor ] && echo 20 > /proc/sys/vm/watermark_scale_factor 2>/dev/null
@@ -26,7 +27,7 @@ echo "[1/7] VM & Cgroup v1 Tuning..."
 [ -f /dev/memcg/system/memory.swappiness ] && echo 100 > /dev/memcg/system/memory.swappiness 2>/dev/null
 echo "      -> apps_swappiness=160 | system_swappiness=100 | vfs_pressure=100"
 
-echo "[2/7] eMMC 5.1 Storage & CPU Latency..."
+echo "[2/8] eMMC 5.1 Storage & MediaTek PPM Policy..."
 if [ -d /sys/block/mmcblk0/queue ]; then
   echo 512 > /sys/block/mmcblk0/queue/read_ahead_kb 2>/dev/null
   echo 2 > /sys/block/mmcblk0/queue/rq_affinity 2>/dev/null
@@ -38,24 +39,38 @@ for b in /sys/block/mmcblk0boot*/queue /sys/block/mmcblk0rpmb/queue; do
 done
 [ -f /proc/sys/kernel/sched_schedstats ] && echo 0 > /proc/sys/kernel/sched_schedstats 2>/dev/null
 [ -f /sys/bus/platform/drivers/systracker/tracker_run ] && echo 0 > /sys/bus/platform/drivers/systracker/tracker_run 2>/dev/null
-echo "      -> eMMC read_ahead=512KB | schedstats=0 | systracker=0"
 
-echo "[3/7] Memeriksa Status Dynamic Mode (Game vs Balanced)..."
+ppm_path="/proc/ppm/policy_status"
+if [ -f "$ppm_path" ]; then
+  echo "2 0" > "$ppm_path" 2>/dev/null # FORCE_LIMIT off
+  echo "3 0" > "$ppm_path" 2>/dev/null # PWR_THRO off
+  echo "4 1" > "$ppm_path" 2>/dev/null # THERMAL on
+  echo "      -> MTK PPM: FORCE_LIMIT=0 | PWR_THRO=0 | THERMAL=1 (Unthrottled)"
+fi
+
+echo "[3/8] DevBox & Chroot VIP Citizen Shield..."
+dev_shield_count=0
+for dev_pid in $(pgrep -f "m.arbdev.devbox|agy|sshd|dropbear" 2>/dev/null); do
+  [ -d "/proc/$dev_pid" ] || continue
+  echo -900 > "/proc/$dev_pid/oom_score_adj" 2>/dev/null
+  dev_shield_count=$((dev_shield_count + 1))
+done
+echo "      -> $dev_shield_count proses DevBox/Chroot terlindungi dari LMKD (oom_adj=-900)."
+
+echo "[4/8] Memeriksa Status Dynamic Mode (Game vs Balanced)..."
 gx_mode="$(cat /sys/module/ged/parameters/gx_game_mode 2>/dev/null || echo 0)"
 gpu_boost="$(cat /sys/module/ged/parameters/boost_gpu_enable 2>/dev/null || echo 0)"
-cam_val="$(cat /proc/net/wlan/setCAM 2>/dev/null || echo 0)"
-ps_val="$(iw dev wlan0 get power_save 2>/dev/null || echo 'unknown')"
 
 if [ "$gx_mode" = "1" ] || [ "$gpu_boost" = "1" ]; then
-  echo "      -> Status Saat Ini: [GAME MODE AKTIF]"
-  echo "         GPU Boost: ON | Wi-Fi CAM: ON | Glove Touch: ON"
+  echo "      -> Status Saat Ini: [GAME BOOST AKTIF]"
+  echo "         GPU Boost: ON | Glove Touch: ON"
 else
   echo "      -> Status Saat Ini: [BALANCED / POWER-SAVE AKTIF]"
-  echo "         GPU Boost: OFF (Smart) | Wi-Fi PowerSave: ON | Glove Touch: OFF"
+  echo "         GPU Boost: OFF (Smart) | Glove Touch: OFF"
 fi
-echo "         $ps_val"
+echo "         Wi-Fi: Native HAL Managed (Anti-Disconnect Locked)"
 
-echo "[4/7] Memindai bangkai proses AppZygote..."
+echo "[5/8] Memindai bangkai proses AppZygote..."
 purged_count=0
 ps_snapshot="$(ps -A -o pid=,ppid=,uid=,args= 2>/dev/null)"
 
@@ -99,7 +114,14 @@ for zpid in $(pgrep -f "_zygote" 2>/dev/null); do
 done
 echo "      -> Selesai! Membasmi $purged_count bangkai AppZygote."
 
-echo "[5/7] ZRAM Huge-Page Writeback & Compaction..."
+echo "[6/8] ZRAM Writeback Token Refill & Compaction..."
+# Refill writeback quota token
+if [ -f /sys/block/zram0/writeback_limit_enable ] && [ -f /sys/block/zram0/writeback_limit ]; then
+  echo 1 > /sys/block/zram0/writeback_limit_enable 2>/dev/null
+  echo 65536 > /sys/block/zram0/writeback_limit 2>/dev/null
+  echo "      -> Token writeback ZRAM di-refill (65536 pages / 256MB)."
+fi
+
 if [ -f /sys/block/zram0/mm_stat ] && [ -f /sys/block/zram0/writeback ]; then
   huge_pages="$(awk '{print $8}' /sys/block/zram0/mm_stat 2>/dev/null)"
   if [ -n "$huge_pages" ] && [ "$huge_pages" -gt 4096 ]; then
@@ -123,7 +145,10 @@ else
   echo "      -> MemAvailable aman (${mem_avail} kB), cache dipertahankan."
 fi
 
-echo "[6/7] Daemon & Battery Telemetry..."
+# Trim /data filesystem blocks asynchronously
+fstrim -v /data 2>/dev/null &
+
+echo "[7/8] Daemon & Battery Telemetry..."
 PID="$(cat /data/local/tmp/helio_g35_optimizer.pid 2>/dev/null)"
 if [ -n "$PID" ] && [ -d "/proc/$PID" ]; then
   echo "      -> Daemon Status : ACTIVE (PID $PID)"
@@ -139,7 +164,7 @@ b_curr="$(cat /sys/class/power_supply/battery/current_now 2>/dev/null || echo 0)
 echo "      -> Suhu Baterai  : ${b_temp_c}°C (raw: $b_temp)"
 echo "      -> Arus Baterai  : ${b_curr} uA"
 
-echo "[7/7] Memeriksa Pembaruan OTA Modul..."
+echo "[8/8] Memeriksa Pembaruan OTA Modul..."
 cur_code="$(grep "^versionCode=" "$MODDIR/module.prop" | cut -d= -f2 2>/dev/null)"
 remote_json="$(curl -s -k --connect-timeout 4 "https://raw.githubusercontent.com/arbdevai/helio-g35-memory-optimizer/main/update.json" 2>/dev/null)"
 remote_code="$(echo "$remote_json" | grep -o '"versionCode":[ ]*[0-9]*' | grep -o '[0-9]*' 2>/dev/null)"
